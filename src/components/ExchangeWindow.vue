@@ -11,8 +11,8 @@
       <div class="exchange-form__input">
         <div class="pair-name">
           <img
-            width="20px"
-            height="20px"
+            width="15"
+            height="15"
             :src="getImagePath(currencyFrom.currency)"
           />
           <select
@@ -43,8 +43,8 @@
       <div class="exchange-form__input">
         <div class="pair-name">
           <img
-            width="20px"
-            height="20px"
+            width="20"
+            height="20"
             :src="getImagePath(currencyTo.currency)"
           />
           <select
@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, onMounted } from "vue";
+import { ref, reactive, watch, computed, onMounted } from "vue";
 import Exchange from "../api/api.js";
 
 const exchange = new Exchange();
@@ -96,20 +96,20 @@ const availableUserAmount = computed(() => {
   };
 });
 const availableCurrencies = ref(["EUR", "USD", "BTC", "ETH"]);
-const currencyFrom = ref({
+const currencyFrom = reactive({
   currency: "EUR",
   amount: 0,
 });
-const currencyTo = ref({
+const currencyTo = reactive({
   currency: "BTC",
   amount: 0,
 });
 
 const selectHandler = (type) => {
   if (type === "from") {
-    currencyFrom.value.currency = event.target.value;
+    currencyFrom.currency = event.target.value;
   } else {
-    currencyTo.value.currency = event.target.value;
+    currencyTo.currency = event.target.value;
   }
   // update rates before calculation
   getRateForPair();
@@ -137,13 +137,13 @@ const calculateOutcome = async () => {
   // check if we have rates
   if (rate.value) {
     const outcome =
-      currencyFrom.value.amount *
+      currencyFrom.amount *
       rate.value.conversion_rate *
       ((100 - ourFee) / 100);
     if (!outcome || outcome < 0) {
-      currencyTo.value.amount = 0;
+      currencyTo.amount = 0;
     } else {
-      currencyTo.value.amount = outcome;
+      currencyTo.amount = outcome;
     }
   }
 };
@@ -151,8 +151,8 @@ const calculateOutcome = async () => {
 const getRateForPair = async () => {
   rate.value == null;
   const resp = await exchange.getRate(
-    currencyFrom.value.currency,
-    currencyTo.value.currency
+    currencyFrom.currency,
+    currencyTo.currency
   );
   if (resp && resp.success) {
     rate.value = resp.data;
@@ -161,18 +161,23 @@ const getRateForPair = async () => {
 
 //validate amount input
 watch(
-  currencyFrom,
-  () => {
-    if (currencyFrom.value.amount < 0) {
-      currencyFrom.value.amount = 0;
+        () => 
+  ({...currencyFrom}),
+  (newVal, oldVal) => {
+    console.log(newVal, oldVal);
+    if (newVal.currency == currencyTo.currency) {
+      currencyTo.currency = oldVal.currency;
+    }
+    if (currencyFrom.amount < 0) {
+      currencyFrom.amount = 0;
       return;
     }
     if (
-      currencyFrom.value.amount >
-      getAvailableUserAmount(currencyFrom.value.currency)
+      currencyFrom.amount >
+      getAvailableUserAmount(currencyFrom.currency)
     ) {
-      currencyFrom.value.amount = getAvailableUserAmount(
-        currencyFrom.value.currency
+      currencyFrom.amount = getAvailableUserAmount(
+        currencyFrom.currency
       );
       return;
     }
