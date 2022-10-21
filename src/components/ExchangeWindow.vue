@@ -2,12 +2,12 @@
   <div class="exchange">
     <div class="exchange-form">
       <div class="exchange-form-available">
-      <p class="description">Amount i have</p>
-      <p class="amount">
-        {{ getAvailableUserAmount(currencyFrom.currency) }}
-        {{ currencyFrom.currency }}
-      </p>
-    </div>
+        <p class="description">Amount i have</p>
+        <p class="amount">
+          {{ getAvailableUserAmount(currencyFrom.currency) }}
+          {{ currencyFrom.currency }}
+        </p>
+      </div>
       <div class="exchange-form__input">
         <div class="pair-name">
           <img
@@ -70,7 +70,7 @@
     </div>
     <div v-if="rate" class="exchange-rate">
       <h3>Rate:</h3>
-      <p>$ {{ formatFiatCurrency(rate?.conversion_rate_usd || 0) }}</p>
+      <p>$ {{ pairUSDRate }}</p>
     </div>
     <div v-else class="exchange-rate">
       <span>Loading rates...</span>
@@ -84,6 +84,7 @@ import Exchange from "../api/api.js";
 
 const exchange = new Exchange();
 const rate = ref(null);
+const timeout = ref(null);
 // our fee is 1%
 const ourFee = 1;
 // MOCK Available user amount
@@ -95,6 +96,7 @@ const availableUserAmount = computed(() => {
     ETH: 17.2334,
   };
 });
+// currency available to exchange
 const availableCurrencies = ref(["EUR", "USD", "BTC", "ETH"]);
 const currencyFrom = reactive({
   currency: "EUR",
@@ -105,14 +107,15 @@ const currencyTo = reactive({
   amount: 0,
 });
 
-const selectHandler = (type) => {
+const selectHandler = async (type) => {
+  rate.value = null;
   if (type === "from") {
     currencyFrom.currency = event.target.value;
   } else {
     currencyTo.currency = event.target.value;
   }
   // update rates before calculation
-  getRateForPair();
+  await getRateForPair();
 };
 
 const getAvailableUserAmount = (currency) => {
@@ -128,18 +131,17 @@ const formatFiatCurrency = (amount) => {
 const getImagePath = (currency) => {
   return require(`@/assets/${currency}.svg`);
 };
-
+// get rates when mounted
 onMounted(() => {
   getRateForPair();
 });
 
+// calculate outcome amount
 const calculateOutcome = async () => {
   // check if we have rates
   if (rate.value) {
     const outcome =
-      currencyFrom.amount *
-      rate.value.conversion_rate *
-      ((100 - ourFee) / 100);
+      currencyFrom.amount * rate.value.conversion_rate * ((100 - ourFee) / 100);
     if (!outcome || outcome < 0) {
       currencyTo.amount = 0;
     } else {
@@ -148,38 +150,43 @@ const calculateOutcome = async () => {
   }
 };
 
+// request for get pair rates
 const getRateForPair = async () => {
-  rate.value == null;
-  const resp = await exchange.getRate(
+  // delay 1 sec to prevent multiple requests
+  clearTimeout(timeout.value);
+  timeout.value = setTimeout(async () => {
+    const resp  = await exchange.getRate(
     currencyFrom.currency,
     currencyTo.currency
   );
   if (resp && resp.success) {
     rate.value = resp.data;
+    calculateOutcome();
   }
+  }, 1000);
 };
+
+// show pair rate in USD 
+const pairUSDRate = computed(() => {
+  if (rate.value) {
+    return formatFiatCurrency(rate.value.conversion_rate_usd);
+  }
+  return 0;
+});
 
 //validate amount input
 watch(
-        () => 
-  ({...currencyFrom}),
+  () => ({ ...currencyFrom }),
   (newVal, oldVal) => {
-    console.log(newVal, oldVal);
     if (newVal.currency == currencyTo.currency) {
       currencyTo.currency = oldVal.currency;
     }
     if (currencyFrom.amount < 0) {
       currencyFrom.amount = 0;
-      return;
-    }
-    if (
-      currencyFrom.amount >
-      getAvailableUserAmount(currencyFrom.currency)
+    } else if (
+      currencyFrom.amount > getAvailableUserAmount(currencyFrom.currency)
     ) {
-      currencyFrom.amount = getAvailableUserAmount(
-        currencyFrom.currency
-      );
-      return;
+      currencyFrom.amount = getAvailableUserAmount(currencyFrom.currency);
     }
   },
   { deep: true }
@@ -195,21 +202,20 @@ watch(
   min-height: 300px;
   box-shadow: 0 0 5px 1px grey;
   background-color: white;
- 
   &-form {
     &-available {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    .description{
-      font-size: 20px;
-      color: black;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      .description {
+        font-size: 20px;
+        color: black;
+      }
+      .amount {
+        font-size: 16px;
+        color: gray;
+      }
     }
-    .amount {
-      font-size: 16px;
-      color: gray;
-    }
-  }
     &__input {
       display: flex;
       justify-content: space-between;
