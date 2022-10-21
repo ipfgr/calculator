@@ -70,7 +70,7 @@
     </div>
     <div v-if="rate" class="exchange-rate">
       <h3>Rate:</h3>
-      <p>$ {{ pairUSDRate }}</p>
+      <p>{{ pairUSDRate }}</p>
     </div>
     <div v-else class="exchange-rate">
       <span>Loading rates...</span>
@@ -121,13 +121,8 @@ const selectHandler = async (type) => {
 const getAvailableUserAmount = (currency) => {
   return availableUserAmount.value[currency] || 0;
 };
-const formatFiatCurrency = (amount) => {
-  return amount.toLocaleString(
-    "en-US",
-    { style: "currency", currency: "USD" },
-    { maximumFractionDigits: 2 }
-  );
-};
+
+// get image path for currency
 const getImagePath = (currency) => {
   return require(`@/assets/${currency}.svg`);
 };
@@ -141,7 +136,7 @@ const calculateOutcome = async () => {
   // check if we have rates
   if (rate.value) {
     const outcome =
-      currencyFrom.amount * rate.value.conversion_rate * ((100 - ourFee) / 100);
+      currencyFrom.amount * (rate.value.conversion_rate * ((100 - ourFee) / 100));
     if (!outcome || outcome < 0) {
       currencyTo.amount = 0;
     } else {
@@ -166,10 +161,19 @@ const getRateForPair = async () => {
   }, 1000);
 };
 
+// round to first 2 valued decimal
+function twoDecimals(n) {
+  var log10 = n ? Math.floor(Math.log10(n)) : 0,
+      div = log10 < 0 ? Math.pow(10, 1 - log10) : 100;
+
+  return Math.round(n * div) / div;
+}
+
 // show pair rate in USD 
 const pairUSDRate = computed(() => {
   if (rate.value) {
-    return formatFiatCurrency(rate.value.conversion_rate_usd);
+    const rateWithFee = rate.value.conversion_rate * ((100 - ourFee) / 100);
+    return `1 ${currencyFrom.currency} ~ ${twoDecimals(rateWithFee)} ${currencyTo.currency}`;
   }
   return 0;
 });
